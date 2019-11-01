@@ -3,8 +3,15 @@
     Modul zum auslesen statischer IP-Konfigurationen aller Netzwerk-Adapter
 
     Autor: incredibleIceTea
-    Version: 0.1a
+    Version: 0.1b
 
+#>
+
+<#  CHANGELOG
+
+    0.1b: 
+        -Comments added
+        
 #>
 
 $desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
