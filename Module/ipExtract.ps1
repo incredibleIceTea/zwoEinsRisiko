@@ -1,5 +1,7 @@
 <#
 
+    IPv4
+
     Modul zum auslesen statischer IP-Konfigurationen aller Netzwerk-Adapter
 
     Erstellt auf dem Desktop die "ipconfig.txt" die pro statisch konfiguriertem
@@ -13,11 +15,16 @@
     xxx.xxx.xxx.xxx xxx.xxx.xxx.xxx
 
     Autor: incredibleIceTea
-    Version: 0.2c
+    Version: 0.3c
 
+    TODO:
+        Sunbetz speicherung
 #>
 
 <#  CHANGELOG
+
+    0.3:
+        Implementierung der DNSAbfage
 
     0.2:
         -Änderung des Skriptpablaufs in:
@@ -51,6 +58,7 @@
         $iptable            : Liste aller NetIpAddressObjekte
         $adapter            : Liste aller NetAdapterObjekte
         $standardGateways   : Liste aller IP4RouteTableWMIObjekte
+        $dnsConf            : Liste der DNS Configurationen aller Adapter
         $output             : Array zum Speichern aller Übergabewerte
 #>
 $desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
@@ -58,6 +66,7 @@ $filePath =  Join-Path -Path $desktopPath -ChildPath "ipconfig.txt"
 $iptable = Get-NetIPAddress
 $adapter = Get-NetAdapter
 $standardGateways = Get-WmiObject -Class Win32_IP4RouteTable
+$dnsConf = Get-DnsClientServerAddress
 $output = @()
 
 # Durchsuchen nach aktiven Adaptern
@@ -68,11 +77,13 @@ foreach($a in $adapter){
             $ret            : Variable zur Anpassung des übergabewerts an $output
             $ipv4Address    : Variable zur Speicherung aller zugehörigen IPAdressen
             $gateWay        : Variable zur Speicherung aller zugehörigen StandardGateways
+            $dns            : Variable zur Speicherung aller zugehörigen DNSServer
             $manualSetting  : Boolen zur Speicherung ob (1) manuelle Einstellungen vorgenommen wurden
         #>
         $ret = @()
         $ipv4Address = @()
         $gateWays = @()
+        $dns = @()
         $manualSetting = $false
         
         # Durchsuchen nach IPObjekt mit beschriebenem IPv4Address Feld das dem momentanen Adapter entspricht
@@ -89,7 +100,7 @@ foreach($a in $adapter){
                 }
             }
         }
-        # Durchsuchen nach GatewayObjekt nach außen das dem Adapter entspricht
+        # Durchsuchen nach Gateway Richtung 0.0.0.0 das dem Adapter entspricht
         foreach($gw in $standardGateways){
             if($gw.destination -eq '0.0.0.0' -and $gw.mask -eq '0.0.0.0'){
                 if($gw.interfaceIndex -eq $a.interfaceIndex){
@@ -98,9 +109,19 @@ foreach($a in $adapter){
                 }
             }
         }
+        # Durchsuchen nach DNSServer der dem Adapter entspricht
+        foreach($d in $dnsConf){
+            if($d.interfaceIndex -eq $a.interfaceIndex){
+                # Filtern der IPv4 (AddressFamilie 2)Einstellung und sichergehen das die config nicht leer ist
+                if($d.addressFamily -eq 2 -and $d.serveraddresses -gt 0){
+                    $dns += $d.serveraddresses
+                }
+            }
+        }
         # Anpassung des Datensatzes zur Speicherung "|" wird als Trennzeichen der einzelnen Felder benutzt
         $ipv4Address += "|"
-        $ret = $a.InterfaceAlias+"|"+$a.macAddress+"|"+$ipv4Address+$gateWays
+        $gateWays += "|"
+        $ret = $a.InterfaceAlias+"|"+$a.macAddress+"|"+$ipv4Address+$gateWays+$dns
         # Überprüfung ob Datensatz manuelle Einstellung ist
         if($manualSetting -eq $true){
             # Übergabe an $output
